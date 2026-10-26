@@ -18,52 +18,51 @@ if not conn_str:
     print("❌ Error: NEON_DB_CONNECTION_STRING not found in environment or .env file.")
     sys.exit(1)
 
-migration_file = Path(__file__).resolve().parent / "migrations" / "001_create_users.sql"
-if not migration_file.exists():
-    print(f"❌ Error: Migration file {migration_file} not found.")
+migrations_dir = Path(__file__).resolve().parent / "migrations"
+migration_files = sorted(migrations_dir.glob("*.sql"))
+
+if not migration_files:
+    print(f"❌ Error: No migration files found in {migrations_dir}.")
     sys.exit(1)
 
 print("🔗 Connecting to Neon PostgreSQL...")
 try:
     with psycopg.connect(conn_str) as conn:
         with conn.cursor() as cur:
-            # 1. Apply Migration
-            print(f"📄 Applying {migration_file.name}...")
-            sql = migration_file.read_text()
-            cur.execute(sql)
-            conn.commit()
-            print("✅ Migration applied successfully!")
-
-            # 2. Inspect Created Table
-            cur.execute("""
-                SELECT column_name, data_type, is_nullable, column_default
-                FROM information_schema.columns 
-                WHERE table_name = 'users'
-                ORDER BY ordinal_position;
-            """)
-            columns = cur.fetchall()
-            print("\n📊 'users' Table Schema in Neon:")
-            for col in columns:
-                print(f"  • {col[0]:<25} {col[1]:<15} (Nullable: {col[2]}, Default: {col[3]})")
-
-            # 3. Check row count
-            cur.execute("SELECT COUNT(*) FROM users;")
-            count = cur.fetchone()[0]
-            print(f"\n👥 Total users in database: {count}")
-
-            if "--test-seed" in sys.argv:
-                print("\n🧪 Running test seed...")
-                test_email = "test.student@v2note.local"
-                cur.execute("""
-                    INSERT INTO users (email, full_name, tier)
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (email) DO UPDATE 
-                    SET full_name = EXCLUDED.full_name
-                    RETURNING id, email, full_name, tier, monthly_quota_minutes, created_at;
-                """, (test_email, "Test Student", "free"))
-                user = cur.fetchone()
+            # 1. Apply Migrations in order
+            for migration_file in migration_files:
+                print(f"📄 Applying {migration_file.name}...")
+                sql = migration_file.read_text()
+                cur.execute(sql)
                 conn.commit()
-                print(f"✅ Test user ready: ID={user[0]}, Email={user[1]}, Tier={user[3]}, Quota={user[4]}m")
+                print(f"✅ {migration_file.name} applied successfully!")
+
+            # 2. Inspect All Created Tables
+            cur.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+                ORDER BY table_name;
+            """)
+            tables = [row[0] for row in cur.fetchall()]
+            print("\n📊 Public Tables in Neon Database:")
+            for t in tables:
+                cur.execute(f"SELECT COUNT(*) FROM {t};")
+                cnt = cur.fetchone()[0]
+                print(f"  • {t:<25} (Rows: {cnt})")
+
+            # 3. Inspect Custom Types (Enums)
+            cur.execute("""
+                SELECT t.typname
+                FROM pg_type t 
+                JOIN pg_namespace n ON 1=1 AND t.typnamespace = n.oid 
+                WHERE n.nspname = 'public' AND t.typtype = 'e'
+                ORDER BY t.typname;
+            """)
+            enums = [row[0] for row in cur.fetchall()]
+            print("\n🏷️ Custom Enums in Neon Database:")
+            for e in enums:
+                print(f"  • {e}")
 
 except Exception as e:
     print("❌ Database operation failed:", e)

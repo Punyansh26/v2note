@@ -16,3 +16,8 @@ These rules apply to work in `docs/` and take precedence over general project gu
 - Cross-check important claims, note conflicts or uncertainty, and avoid presenting unsupported details as fact.
 - Preserve the existing documentation's organization and conventions. Keep content focused, accurate, and useful to its intended reader.
 - Ask the user for clarification when the requested scope, audience, or a consequential decision is unclear; otherwise proceed with a reasonable, explicit assumption.
+
+## Code explanations
+
+- When the user explicitly asks for a code explanation, assume they are new to programming and this is their first project. Explain thoroughly in plain language: what the code does, how the important parts work together, and unfamiliar terms or concepts. Use a small example when it helps, and do not assume prior knowledge.
+- Explaining code does not authorize changing or executing it. Continue to follow the documentation-only rules unless the user explicitly asks for code changes.

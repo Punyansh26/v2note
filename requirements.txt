@@ -1,0 +1,9 @@
+psycopg
+fastapi
+uvicorn
+httpx
+python-dotenv
+sqlmodel
+sentence-transformers
+pydantic
+pydantic-settings
